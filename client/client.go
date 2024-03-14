@@ -172,6 +172,10 @@ func New(config *Config) (*Client, error) {
 		config = &Config{}
 	}
 
+	if doConfigHook != nil {
+		doConfigHook(config)
+	}
+
 	client := &Client{}
 	requester, err := newDefaultRequester(client, config)
 	if err != nil {
@@ -268,10 +272,24 @@ func (rq *defaultRequester) dispatch(ctx context.Context, method, urlpath string
 	return rsp, nil
 }
 
+type ConfigHookFunc = func (*Config)
+
 var (
 	doRetry   = 250 * time.Millisecond
 	doTimeout = 5 * time.Second
+	doConfigHook ConfigHookFunc = nil
 )
+
+// SetConfigHook allows access to the *Config passed to New()
+// in order to customize client behavior across all of Pebble.
+// Calling restore will revert the changes.
+func SetConfigHook(configHook ConfigHookFunc) (restore func()) {
+	oldConfigHook := doConfigHook
+	doConfigHook = configHook
+	return func() {
+		doConfigHook = oldConfigHook
+	}
+}
 
 // FakeDoRetry fakes the delays used by the do retry loop (intended for
 // testing). Calling restore will revert the changes.
